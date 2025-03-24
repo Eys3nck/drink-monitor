@@ -47,6 +47,7 @@
   <video id="video" autoplay playsinline muted></video>
   <canvas id="canvas" style="display:none;"></canvas>
   <button id="start">Start Sending</button>
+  <button id="flip">Flip Camera</button>
   <div id="status">Status: Not sending...</div>
 
   <script>
@@ -55,13 +56,21 @@
     const ctx = canvas.getContext('2d');
     const statusText = document.getElementById('status');
     const sendButton = document.getElementById('start');
+    const flipButton = document.getElementById('flip');
     let sending = false;
+    let currentFacingMode = 'environment';
+    let stream = null;
 
     const BACKEND_URL = 'https://6312-194-120-133-5.ngrok-free.app/upload'; // Replace with your current ngrok link
 
-    async function startCamera() {
+    async function startCamera(facingMode = 'environment') {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: facingMode } }
+        });
         video.srcObject = stream;
       } catch (error) {
         alert('Camera access denied or unavailable.');
@@ -100,6 +109,11 @@
       statusText.innerText = sending ? 'Status: Sending...' : 'Status: Not sending...';
     });
 
+    flipButton.addEventListener('click', () => {
+      currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+      startCamera(currentFacingMode);
+    });
+
     setInterval(() => {
       if (sending) captureAndSend();
     }, 2000);
@@ -108,3 +122,4 @@
   </script>
 </body>
 </html>
+
