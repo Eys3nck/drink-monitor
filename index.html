@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drink Monitor</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      background: #f4f4f4;
+    }
+    video, canvas {
+      width: 100%;
+      max-width: 480px;
+      border-radius: 12px;
+      margin-top: 1rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    #status {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-top: 1rem;
+      color: #333;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border: none;
+      background: #333;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #555;
+    }
+  </style>
+</head>
+<body>
+  <h1>Drink Monitor - Live Feed</h1>
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+  <button id="start">Start Sending</button>
+  <div id="status">Status: Not sending...</div>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const statusText = document.getElementById('status');
+    const sendButton = document.getElementById('start');
+    let sending = false;
+
+    const BACKEND_URL = 'https://6312-194-120-133-5.ngrok-free.app/upload'; // Replace with your current ngrok link
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+      } catch (error) {
+        alert('Camera access denied or unavailable.');
+        console.error(error);
+      }
+    }
+
+    function captureAndSend() {
+      if (!sending) return;
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+
+      canvas.toBlob(async (blob) => {
+        const formData = new FormData();
+        formData.append('image', blob, 'frame.jpg');
+
+        try {
+          const response = await fetch(BACKEND_URL, {
+            method: 'POST',
+            body: formData
+          });
+          const result = await response.json();
+          statusText.innerText = `Status: ${result.level.toUpperCase()}`;
+        } catch (err) {
+          console.error('Send error:', err);
+          statusText.innerText = 'Status: Error sending frame';
+        }
+      }, 'image/jpeg');
+    }
+
+    sendButton.addEventListener('click', () => {
+      sending = !sending;
+      sendButton.innerText = sending ? 'Stop Sending' : 'Start Sending';
+      statusText.innerText = sending ? 'Status: Sending...' : 'Status: Not sending...';
+    });
+
+    setInterval(() => {
+      if (sending) captureAndSend();
+    }, 2000);
+
+    startCamera();
+  </script>
+</body>
+</html>
