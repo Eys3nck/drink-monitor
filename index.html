@@ -47,7 +47,6 @@
   <video id="video" autoplay playsinline muted></video>
   <canvas id="canvas" style="display:none;"></canvas>
   <button id="start">Start Sending</button>
-  <button id="flip">Flip Camera</button>
   <div id="status">Status: Not sending...</div>
 
   <script>
@@ -56,21 +55,32 @@
     const ctx = canvas.getContext('2d');
     const statusText = document.getElementById('status');
     const sendButton = document.getElementById('start');
-    const flipButton = document.getElementById('flip');
     let sending = false;
-    let currentFacingMode = 'environment';
-    let stream = null;
 
-    const BACKEND_URL = 'https://6312-194-120-133-5.ngrok-free.app/upload'; // Replace with your current ngrok link
+    const BACKEND_URL = 'https://your-backend-url.com/upload'; // Replace with your actual backend
 
-    async function startCamera(facingMode = 'environment') {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+    async function startCamera() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { exact: facingMode } }
-        });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === "videoinput");
+
+        let constraints = {
+          video: {
+            facingMode: "environment" // Default to rear camera on mobile
+          }
+        };
+
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (!isMobile && videoDevices.length > 0) {
+          // On laptop, use the first available camera (usually front)
+          constraints = {
+            video: {
+              deviceId: videoDevices[0].deviceId
+            }
+          };
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = stream;
       } catch (error) {
         alert('Camera access denied or unavailable.');
@@ -95,10 +105,19 @@
             body: formData
           });
           const result = await response.json();
-          statusText.innerText = `Status: ${result.level.toUpperCase()}`;
+          const drinkStatus = result.level.toUpperCase();
+
+          statusText.innerText = `Detected: ${drinkStatus}`;
+          statusText.style.color = {
+            EMPTY: "red",
+            HALF: "orange",
+            FULL: "green"
+          }[drinkStatus] || "#333";
+
         } catch (err) {
           console.error('Send error:', err);
           statusText.innerText = 'Status: Error sending frame';
+          statusText.style.color = "#333";
         }
       }, 'image/jpeg');
     }
@@ -107,11 +126,7 @@
       sending = !sending;
       sendButton.innerText = sending ? 'Stop Sending' : 'Start Sending';
       statusText.innerText = sending ? 'Status: Sending...' : 'Status: Not sending...';
-    });
-
-    flipButton.addEventListener('click', () => {
-      currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-      startCamera(currentFacingMode);
+      statusText.style.color = "#333";
     });
 
     setInterval(() => {
@@ -122,4 +137,3 @@
   </script>
 </body>
 </html>
-
